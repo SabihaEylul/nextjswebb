@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 const nextConfig = {
   images: {
     remotePatterns: [
@@ -10,6 +11,12 @@ const nextConfig = {
     ],
   },
   typescript: {
+=======
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+   typescript: {
+>>>>>>> c15284b00db3931ae0616bc79dcf2837901b639f
     ignoreBuildErrors: true,
   },
   eslint: {
