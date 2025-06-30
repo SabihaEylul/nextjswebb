@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
-export function middleware(request: NextRequest) {
+export function middleware() {
   // Middleware is currently disabled as authentication is handled client-side
   // on each protected page using localStorage.
   // If you want to re-enable server-side protection via middleware,

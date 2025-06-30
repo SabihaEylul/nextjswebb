@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import Image from 'next/image';
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -12,11 +13,13 @@ export default function Navbar() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      setIsAdmin(!!localStorage.getItem('admin'));
+      const adminData = localStorage.getItem('admin');
+      setIsAdmin(!!adminData);
     }
     // Dinamik güncelleme için event listener ekle (başka sekmede çıkış/giriş olursa da güncellesin)
     const handleStorage = () => {
-      setIsAdmin(!!localStorage.getItem('admin'));
+      const adminData = localStorage.getItem('admin');
+      setIsAdmin(!!adminData);
     };
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);
@@ -26,16 +29,17 @@ export default function Navbar() {
     localStorage.removeItem('admin');
     setIsAdmin(false);
     router.push('/admin/login');
+    router.refresh();
   };
 
   return (
     <header className="bg-white shadow-lg fixed w-full top-0 z-50">
       <nav className="mx-auto flex max-w-7xl items-center justify-between p-4 lg:px-8" aria-label="Global">
         <div className="flex lg:flex-1 items-center gap-3">
-          <img src="/images/sac-boyama.jpeg" alt="AtaKuaför Logo" className="h-12 w-12 rounded-full object-cover border-2 border-pink-400 shadow-md" />
+          <Image src="/images/sac-boyama.jpeg" alt="AtaKuaför Logo" width={48} height={48} className="h-12 w-12 rounded-full object-cover border-2 border-pink-400 shadow-md" />
           <div className="flex flex-col justify-center">
             <span className="sr-only">Hoşgeldin AtaKuaför</span>
-            <h1 className="text-xl font-semibold text-pink-500 tracking-tight">Hoşgeldiniz <span className="text-gray-800 font-normal">Ata Kuaför'e</span></h1>
+            <h1 className="text-xl font-semibold text-pink-500 tracking-tight">Ata Kuaför&apos;e <span className="text-gray-800 font-normal">Hoşgeldiniz</span></h1>
           </div>
         </div>
         <div className="flex lg:hidden">
@@ -57,7 +61,7 @@ export default function Navbar() {
           <Link href="/contact" className={`text-sm font-semibold leading-6 transition duration-300 ${pathname.startsWith('/contact') ? 'text-pink-600' : 'text-pink-500 hover:text-pink-600'}`}>İletişim</Link>
         </div>
         <div className="hidden lg:flex lg:flex-1 lg:justify-end">
-          {isAdmin && pathname.startsWith('/admin') ? (
+          {isAdmin ? (
             <button
               onClick={handleLogout}
               className="text-sm font-semibold leading-6 text-red-500 hover:text-red-600 transition duration-300"
@@ -79,9 +83,9 @@ export default function Navbar() {
           <div className="fixed inset-y-0 right-0 z-10 w-full overflow-y-auto bg-white px-6 py-6 sm:max-w-sm sm:ring-1 sm:ring-gray-900/10">
             <div className="flex items-center justify-between">
               <Link href="#" className="-m-1.5 p-1.5 flex items-center gap-2">
-                <img src="/images/sac-boyama.jpeg" alt="AtaKuaför Logo" className="h-8 w-8 rounded-full object-cover border-2 border-pink-400 shadow-md" />
+                <Image src="/images/sac-boyama.jpeg" alt="AtaKuaför Logo" width={32} height={32} className="h-8 w-8 rounded-full object-cover border-2 border-pink-400 shadow-md" />
                 <span className="sr-only">Hoşgeldin AtaKuaför</span>
-                <h1 className="text-base font-semibold text-pink-500">Hoşgeldiniz <span className="text-gray-800 font-normal">Ata Kuaför'e</span></h1>
+                <h1 className="text-base font-semibold text-pink-500">Ata Kuaför&apos;e <span className="text-gray-800 font-normal">Hoşgeldiniz</span></h1>
               </Link>
               <button
                 type="button"
@@ -103,7 +107,7 @@ export default function Navbar() {
                   <Link href="/contact" className={`-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 transition duration-300 ${pathname.startsWith('/contact') ? 'text-pink-600 bg-pink-50' : 'text-pink-500 hover:text-pink-600 hover:bg-pink-50'}`}>İletişim</Link>
                 </div>
                 <div className="py-6">
-                  {isAdmin && pathname.startsWith('/admin') ? (
+                  {isAdmin ? (
                     <button
                       onClick={() => {
                         handleLogout();

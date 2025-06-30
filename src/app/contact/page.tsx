@@ -1,6 +1,37 @@
-import Image from 'next/image';
+"use client";
+
+import { useState } from 'react';
 
 export default function ContactPage() {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [message, setMessage] = useState('');
+  const [success, setSuccess] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSuccess('');
+    setError('');
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, message }),
+      });
+      if (res.ok) {
+        setSuccess('Mesajınız başarıyla gönderildi!');
+        setName('');
+        setEmail('');
+        setMessage('');
+      } else {
+        setError('Mesaj gönderilemedi. Lütfen tekrar deneyin.');
+      }
+    } catch {
+      setError('Bir hata oluştu.');
+    }
+  };
+
   return (
     <div className="min-h-screen pt-16 bg-gray-50">
       <div className="max-w-3xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
@@ -46,19 +77,21 @@ export default function ContactPage() {
         </div>
         <div className="bg-white rounded-lg shadow-md p-8">
           <h2 className="text-2xl font-bold mb-4 text-pink-600">Bize Ulaşın</h2>
-          <form className="space-y-4">
+          <form className="space-y-4" onSubmit={handleSubmit}>
             <div>
               <label className="block text-sm font-medium text-gray-700">İsim</label>
-              <input type="text" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500" required />
+              <input type="text" value={name} onChange={e => setName(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500" required />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">E-posta</label>
-              <input type="email" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500" required />
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500" required />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Mesaj</label>
-              <textarea className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500" rows={4} required />
+              <textarea value={message} onChange={e => setMessage(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500" rows={4} required />
             </div>
+            {success && <div className="text-green-600 font-semibold">{success}</div>}
+            {error && <div className="text-red-600 font-semibold">{error}</div>}
             <button type="submit" className="w-full bg-pink-500 hover:bg-pink-600 text-white font-semibold py-3 rounded-md transition duration-300">Gönder</button>
           </form>
         </div>

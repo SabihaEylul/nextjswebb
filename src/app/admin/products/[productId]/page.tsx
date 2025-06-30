@@ -2,15 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-
-interface Product {
-  id: number;
-  name: string;
-  price: number;
-  imageUrl: string;
-  rating: number;
-  reviewCount: number;
-}
+import Image from 'next/image';
 
 // This component will handle both creating a new product and editing an existing one.
 export default function ProductForm() {
@@ -18,7 +10,8 @@ export default function ProductForm() {
   const params = useParams();
   const productId = params.productId as string;
 
-  const [name, setName] = useState('');
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [preview, setPreview] = useState<string>("");
@@ -29,54 +22,70 @@ export default function ProductForm() {
     if (productId && productId !== 'new') {
       setIsNew(false);
       setLoading(true);
-      const products: Product[] = JSON.parse(localStorage.getItem('products') || '[]');
-      const product = products.find(p => p.id === parseInt(productId));
-      if (product) {
-        setName(product.name);
-        setPrice(String(product.price));
-        setImageUrl(product.imageUrl);
-        setPreview(product.imageUrl);
-      }
+      const fetchProduct = async () => {
+        try {
+          const res = await fetch(`/api/products/${productId}`);
+          if (!res.ok) {
+            throw new Error('Ürün bulunamadı.');
+          }
+          const product = await res.json();
+          setTitle(product.title);
+          setDescription(product.description);
+          setPrice(String(product.price || ''));
+          setImageUrl(product.imageUrl);
+          setPreview(product.imageUrl);
+        } catch (error) {
+          console.error('Error fetching product:', error);
+          alert('Ürün yüklenirken bir hata oluştu.');
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchProduct();
+    } else {
       setLoading(false);
     }
   }, [productId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !price || !imageUrl) {
+    if (!title || !description || !imageUrl) {
       alert('Lütfen tüm alanları doldurun.');
       return;
     }
     setLoading(true);
 
-    const products: Product[] = JSON.parse(localStorage.getItem('products') || '[]');
-
-    if (isNew) {
-      const newProduct: Product = {
-        id: Date.now(),
-        name,
-        price: parseFloat(price),
+    try {
+      const productData = {
+        title,
+        description,
         imageUrl,
-        rating: 0,
-        reviewCount: 0
+        price: price ? parseFloat(price) : null,
       };
-      products.push(newProduct);
-    } else {
-      const productIndex = products.findIndex(p => p.id === parseInt(productId));
-      if (productIndex > -1) {
-        products[productIndex] = {
-          ...products[productIndex],
-          name,
-          price: parseFloat(price),
-          imageUrl
-        };
-      }
-    }
 
-    localStorage.setItem('products', JSON.stringify(products));
-    alert(isNew ? 'Ürün başarıyla oluşturuldu!' : 'Ürün başarıyla güncellendi!');
-    router.push('/admin/products');
-    setLoading(false);
+      const url = isNew ? '/api/products' : `/api/products/${productId}`;
+      const method = isNew ? 'POST' : 'PUT';
+
+      const res = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(productData),
+      });
+
+      if (!res.ok) {
+        throw new Error('Ürün kaydedilirken bir hata oluştu.');
+      }
+
+      alert(isNew ? 'Ürün başarıyla oluşturuldu!' : 'Ürün başarıyla güncellendi!');
+      router.push('/admin/products');
+    } catch (error) {
+      console.error('Error saving product:', error);
+      alert('Bir hata oluştu.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -108,14 +117,27 @@ export default function ProductForm() {
       <h1 className="mb-6 text-2xl font-bold">{pageTitle}</h1>
       <form onSubmit={handleSubmit} className="space-y-6 rounded-lg bg-white p-6 shadow-md">
         <div>
-          <label htmlFor="name" className="mb-2 block text-sm font-medium text-gray-900">
+          <label htmlFor="title" className="mb-2 block text-sm font-medium text-gray-900">
             Ürün Adı
           </label>
           <input
             type="text"
-            id="name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            id="title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="block w-full rounded-lg border border-gray-300 bg-gray-50 p-2.5 text-sm text-gray-900 focus:border-pink-500 focus:ring-pink-500"
+            required
+            disabled={loading}
+          />
+        </div>
+        <div>
+          <label htmlFor="description" className="mb-2 block text-sm font-medium text-gray-900">
+            Açıklama
+          </label>
+          <textarea
+            id="description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
             className="block w-full rounded-lg border border-gray-300 bg-gray-50 p-2.5 text-sm text-gray-900 focus:border-pink-500 focus:ring-pink-500"
             required
             disabled={loading}
@@ -123,7 +145,7 @@ export default function ProductForm() {
         </div>
         <div>
           <label htmlFor="price" className="mb-2 block text-sm font-medium text-gray-900">
-            Fiyat
+            Fiyat (TL)
           </label>
            <input
             type="number"
@@ -131,7 +153,7 @@ export default function ProductForm() {
             value={price}
             onChange={(e) => setPrice(e.target.value)}
             className="block w-full rounded-lg border border-gray-300 bg-gray-50 p-2.5 text-sm text-gray-900 focus:border-pink-500 focus:ring-pink-500"
-            required
+            placeholder="Fiyat giriniz"
             disabled={loading}
           />
         </div>
@@ -167,7 +189,7 @@ export default function ProductForm() {
             )}
           </div>
           {preview && (
-            <img src={preview} alt="Önizleme" className="h-32 rounded shadow border object-contain" />
+            <Image src={preview} alt="Önizleme" width={128} height={128} className="h-32 w-32 rounded shadow border object-contain" />
           )}
         </div>
         <div className="flex items-center space-x-4">

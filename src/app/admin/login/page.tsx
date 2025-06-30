@@ -23,11 +23,13 @@ export default function LoginPage() {
     if (username === 'admin' && password === 'admin123') {
       const adminData = {
         id: 'admin-user',
-        username: 'admin'
+        username: 'admin',
+        password: 'admin123'
       };
       
       localStorage.setItem('admin', JSON.stringify(adminData));
       router.push('/admin/dashboard');
+      router.refresh();
     } else {
       setError('Geçersiz kullanıcı adı veya şifre');
     }
@@ -46,7 +48,14 @@ export default function LoginPage() {
       />
       <div className="absolute inset-0 bg-black bg-opacity-60"></div>
       <div className="relative z-10 w-full max-w-md rounded-lg bg-white bg-opacity-90 p-8 shadow-md">
-        <h1 className="mb-6 text-center text-2xl font-bold text-gray-800">
+        <button
+          type="button"
+          onClick={() => router.push('/')}
+          className="mb-4 flex items-center text-sm text-gray-600 hover:text-pink-600 transition"
+        >
+          <span className="mr-2 text-lg">←</span> Geri Dön
+        </button>
+        <h1 className="mb-6 text-center text-2xl font-bold text-pink-700">
           Admin Girişi
         </h1>
         <form onSubmit={handleSubmit}>

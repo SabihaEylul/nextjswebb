@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 interface Product {
-  id: number;
-  name: string;
-  price: number;
+  id: string;
+  title: string;
+  description: string;
   imageUrl: string;
+  price: number | null;
   rating: number;
   reviewCount: number;
 }
@@ -15,23 +17,40 @@ interface Product {
 export default function ProductClient() {
   const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // LocalStorage'dan ürünleri yükle
-    const savedProducts = localStorage.getItem('products');
-    if (savedProducts) {
-      setProducts(JSON.parse(savedProducts));
-    }
+    const fetchProducts = async () => {
+      try {
+        const res = await fetch('/api/products');
+        if (!res.ok) {
+          throw new Error('Ürünler yüklenirken bir hata oluştu.');
+        }
+        const data = await res.json();
+        setProducts(data);
+      } catch (error) {
+        console.error('Error fetching products:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
   }, []);
 
-  const deleteProduct = async (id: number) => {
+  const deleteProduct = async (id: string) => {
     if (confirm('Bu ürünü silmek istediğinizden emin misiniz?')) {
       setLoading(true);
       try {
-        const updatedProducts = products.filter(product => product.id !== id);
-        setProducts(updatedProducts);
-        localStorage.setItem('products', JSON.stringify(updatedProducts));
+        const res = await fetch(`/api/products/${id}`, {
+          method: 'DELETE',
+        });
+        
+        if (!res.ok) {
+          throw new Error('Ürün silinirken bir hata oluştu.');
+        }
+        
+        setProducts(products.filter(product => product.id !== id));
         alert('Ürün başarıyla silindi.');
       } catch (error) {
         console.error(error);
@@ -78,11 +97,11 @@ export default function ProductClient() {
               <tr key={product.id} className="border-b bg-white hover:bg-gray-50">
                 <td className="px-6 py-4">
                   {product.imageUrl && (
-                    <img src={product.imageUrl} alt={product.name} className="h-16 w-16 object-contain rounded shadow border" />
+                    <Image src={product.imageUrl} alt={product.title} width={64} height={64} className="h-16 w-16 object-contain rounded shadow border" />
                   )}
                 </td>
-                <td className="px-6 py-4 font-medium text-gray-900">{product.name}</td>
-                <td className="px-6 py-4">{product.price} TL</td>
+                <td className="px-6 py-4 font-medium text-gray-900">{product.title}</td>
+                <td className="px-6 py-4">{product.price ? `${product.price} TL` : 'Belirsiz'}</td>
                 <td className="px-6 py-4">{product.rating.toFixed(1)} ({product.reviewCount} oy)</td>
                 <td className="px-6 py-4 text-right">
                   <button

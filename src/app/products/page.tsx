@@ -1,85 +1,75 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import Image from 'next/image';
+import { useState, useEffect } from 'react';
 
 interface Product {
-  id: number;
-  name: string;
-  price: number;
+  id: string;
+  title: string;
+  description: string;
   imageUrl: string;
+  price: number | null;
   rating: number;
   reviewCount: number;
 }
 
 interface ProductReview {
-  productId: number;
-  rating: number;
+  id: string;
+  name: string;
   comment: string;
+  rating: number;
+  productId: string;
+  createdAt: string;
 }
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [reviews, setReviews] = useState<ProductReview[]>([]);
-  const [newReview, setNewReview] = useState<{ [key: number]: { rating: number; comment: string } }>({});
+  const [newReview, setNewReview] = useState<{ [key: string]: { rating: number; comment: string } }>({});
 
   useEffect(() => {
-    // Lanza ürünleri örnekleri
-    const defaultProducts: Product[] = [
-      {
-        id: 1,
-        name: 'Lanza Healing Moisture Shampoo',
-        price: 350,
-        imageUrl: '/images/lanza-shampoo.jpg',
-        rating: 4.7,
-        reviewCount: 18
-      },
-      {
-        id: 2,
-        name: 'Lanza Keratin Healing Oil',
-        price: 420,
-        imageUrl: '/images/lanza-keratin-oil.jpg',
-        rating: 4.9,
-        reviewCount: 22
-      },
-      {
-        id: 3,
-        name: 'Lanza Healing ColorCare Conditioner',
-        price: 390,
-        imageUrl: '/images/lanza-conditioner.jpg',
-        rating: 4.8,
-        reviewCount: 15
-      },
-      {
-        id: 4,
-        name: 'Lanza Healing Strength Serum',
-        price: 480,
-        imageUrl: '/images/lanza-serum.jpg',
-        rating: 4.6,
-        reviewCount: 12
-      },
-      {
-        id: 5,
-        name: 'Lanza Healing Volume Final Effects',
-        price: 310,
-        imageUrl: '/images/lanza-volume.jpg',
-        rating: 4.5,
-        reviewCount: 10
+    const fetchProducts = async () => {
+      try {
+        const res = await fetch('/api/products');
+        if (!res.ok) {
+          throw new Error('Ürünler yüklenirken bir hata oluştu.');
+        }
+        const data = await res.json();
+        setProducts(data);
+      } catch (err) {
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError('Bilinmeyen bir hata oluştu.');
+        }
+      } finally {
+        setLoading(false);
       }
-    ];
-    // LocalStorage'dan ürünleri yükle
-    const savedProducts = localStorage.getItem('products');
-    if (savedProducts) {
-      setProducts(JSON.parse(savedProducts));
-    } else {
-      setProducts(defaultProducts);
-      localStorage.setItem('products', JSON.stringify(defaultProducts));
-    }
-    const savedReviews = localStorage.getItem('productReviews');
-    if (savedReviews) setReviews(JSON.parse(savedReviews));
+    };
+
+    fetchProducts();
   }, []);
 
-  const handleReviewChange = (productId: number, field: 'rating' | 'comment', value: any) => {
+  useEffect(() => {
+    // Yorumları veritabanından yükle
+    const fetchReviews = async () => {
+      try {
+        const res = await fetch('/api/reviews');
+        if (res.ok) {
+          const data = await res.json();
+          setReviews(data);
+        }
+      } catch (error) {
+        console.error('Yorumlar yüklenirken hata:', error);
+      }
+    };
+
+    fetchReviews();
+  }, []);
+
+  const handleReviewChange = (productId: string, field: 'rating' | 'comment', value: string | number) => {
     setNewReview((prev) => ({
       ...prev,
       [productId]: {
@@ -89,15 +79,58 @@ export default function ProductsPage() {
     }));
   };
 
-  const handleReviewSubmit = (productId: number) => {
-    if (!newReview[productId]?.rating || !newReview[productId]?.comment) return;
-    const updated = [
-      ...reviews,
-      { productId, rating: newReview[productId].rating, comment: newReview[productId].comment },
-    ];
-    setReviews(updated);
-    localStorage.setItem('productReviews', JSON.stringify(updated));
-    setNewReview((prev) => ({ ...prev, [productId]: { rating: 0, comment: '' } }));
+  const handleReviewSubmit = async (productId: string) => {
+    if (!newReview[productId]?.rating || !newReview[productId]?.comment) {
+      alert('Lütfen puan ve yorum alanlarını doldurun.');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: 'Anonim', // Varsayılan isim
+          comment: newReview[productId].comment,
+          rating: newReview[productId].rating,
+          productId: productId,
+        }),
+      });
+
+      if (res.ok) {
+        const newReviewData = await res.json();
+        setReviews([...reviews, newReviewData]);
+        setNewReview((prev) => ({ ...prev, [productId]: { rating: 0, comment: '' } }));
+        alert('Yorum başarıyla eklendi!');
+      } else {
+        alert('Yorum eklenirken bir hata oluştu.');
+      }
+    } catch (error) {
+      console.error('Yorum eklenirken hata:', error);
+      alert('Yorum eklenirken bir hata oluştu.');
+    }
+  };
+
+  const handleReviewDelete = async (reviewId: string) => {
+    if (confirm('Bu yorumu silmek istediğinizden emin misiniz?')) {
+      try {
+        const res = await fetch(`/api/reviews/${reviewId}`, {
+          method: 'DELETE',
+        });
+
+        if (res.ok) {
+          setReviews(reviews.filter(review => review.id !== reviewId));
+          alert('Yorum başarıyla silindi!');
+        } else {
+          alert('Yorum silinirken bir hata oluştu.');
+        }
+      } catch (error) {
+        console.error('Yorum silinirken hata:', error);
+        alert('Yorum silinirken bir hata oluştu.');
+      }
+    }
   };
 
   const renderStars = (rating: number, setRating?: (r: number) => void) => (
@@ -113,6 +146,22 @@ export default function ProductsPage() {
       ))}
     </div>
   );
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <p className="text-xl">Ürünler Yükleniyor...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <p className="text-xl text-red-500">{error}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white pt-16">
@@ -135,17 +184,18 @@ export default function ProductsPage() {
                   <div className="relative w-full h-64">
                     <Image
                       src={product.imageUrl}
-                      alt={product.name}
+                      alt={product.title}
                       fill
                       className="object-cover object-center"
                     />
                   </div>
                   <div className="p-6">
-                    <h3 className="text-2xl font-bold mb-2">{product.name}</h3>
+                    <h3 className="text-2xl font-bold mb-2">{product.title}</h3>
                     <p className="text-xl font-bold text-pink-500 mb-2">{product.price} TL</p>
                     <div className="mb-2 flex items-center gap-2">
-                      {renderStars(Math.round(avgRating))}
-                      <span className="text-sm text-gray-500">({productReviews.length} oy)</span>
+                      <span className="text-sm text-gray-500">
+                        Ortalama: {avgRating.toFixed(1)} ({productReviews.length} oy)
+                      </span>
                     </div>
                     <div className="mt-4">
                       <h4 className="font-semibold mb-2">Yorum Ekle</h4>
@@ -177,8 +227,16 @@ export default function ProductsPage() {
                       <ul className="space-y-2">
                         {productReviews.map((r, idx) => (
                           <li key={idx} className="border-b pb-2">
-                            <div className="flex items-center gap-2 mb-1">
-                              {renderStars(r.rating)}
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center gap-2">
+                                {renderStars(r.rating)}
+                              </div>
+                              <button
+                                onClick={() => handleReviewDelete(r.id)}
+                                className="text-red-500 hover:text-red-700 text-xs font-medium"
+                              >
+                                Sil
+                              </button>
                             </div>
                             <p className="text-gray-700 text-sm">{r.comment}</p>
                           </li>

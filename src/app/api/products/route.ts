@@ -1,9 +1,39 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import prisma from '../../../lib/prisma';
 
 export async function GET() {
-  return NextResponse.json({ error: 'Not implemented. Database connection removed.' }, { status: 501 });
+  try {
+    const products = await prisma.product.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
+    return NextResponse.json(products);
+  } catch (error) {
+    console.error('Error fetching products:', error);
+    return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });
+  }
 }
 
-export async function POST() {
-  return NextResponse.json({ error: 'Not implemented. Database connection removed.' }, { status: 501 });
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { title, description, imageUrl, price } = body;
+
+    if (!title || !description || !imageUrl) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    const product = await prisma.product.create({
+      data: {
+        title,
+        description,
+        imageUrl,
+        price: price ? parseFloat(price) : null,
+      }
+    });
+
+    return NextResponse.json(product);
+  } catch (error) {
+    console.error('Error creating product:', error);
+    return NextResponse.json({ error: 'Failed to create product' }, { status: 500 });
+  }
 } 

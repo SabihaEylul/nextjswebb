@@ -4,74 +4,71 @@ import Image from 'next/image';
 import { useState, useEffect } from 'react';
 
 interface Service {
-  id: number;
-  title: string;
-  description: string;
-  imageUrl: string;
+  id: string;
+  name: string;
+  description: string | null;
+  imageUrl: string | null;
   price: number;
 }
 
 interface ServiceReview {
-  serviceId: number;
-  rating: number;
+  id: string;
+  name: string;
   comment: string;
+  rating: number;
+  serviceId: string;
+  createdAt: string;
 }
 
 export default function ServicesPage() {
-  const services: Service[] = [
-    {
-      id: 1,
-      title: 'Kaş Tasarımı',
-      description: 'Profesyonel kaş tasarımı ile yüzünüze uygun şekilde kaşlarınızı şekillendiriyoruz.',
-      imageUrl: '/images/kas-tasarimi.jpeg',
-      price: 200
-    },
-    {
-      id: 2,
-      title: 'Kirpik Lifting',
-      description: 'Uzun süreli etkili kirpik lifting uygulaması ile gözlerinizi ön plana çıkarıyoruz.',
-      imageUrl: '/images/kirpik-lifting.jpeg',
-      price: 300
-    },
-    {
-      id: 3,
-      title: 'Kaynak Saç',
-      description: 'Doğal görünümlü, hacimli ve uzun saçlar için profesyonel kaynak saç uygulamaları sunuyoruz.',
-      imageUrl: '/images/kaynak-sac.jpeg',
-      price: 1500
-    },
-    {
-      id: 4,
-      title: 'Saç Kesimi',
-      description: 'Modern ve klasik kesim teknikleriyle size en uygun stili yakalıyoruz.',
-      imageUrl: '/images/sac-kesimi.jpeg',
-      price: 250
-    },
-    {
-      id: 5,
-      title: 'Saç Boyama',
-      description: 'Profesyonel saç boyama teknikleriyle hayalinizdeki renge kavuşun.',
-      imageUrl: '/images/sac-boyama.jpeg',
-      price: 1000
-    },
-    {
-      id: 6,
-      title: 'Protez Tırnak',
-      description: 'Dayanıklı ve estetik protez tırnak uygulamaları ile elleriniz her zaman bakımlı görünsün.',
-      imageUrl: '/images/protez-tirnak.jpeg',
-      price: 600
-    }
-  ];
+  const [services, setServices] = useState<Service[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [reviews, setReviews] = useState<ServiceReview[]>([]);
-  const [newReview, setNewReview] = useState<{ [key: number]: { rating: number; comment: string } }>({});
+  const [newReview, setNewReview] = useState<{ [key: string]: { rating: number; comment: string } }>({});
 
-  useEffect(() => {
-    const saved = localStorage.getItem('serviceReviews');
-    if (saved) setReviews(JSON.parse(saved));
+   useEffect(() => {
+    const fetchServices = async () => {
+      try {
+        const res = await fetch('/api/services');
+        if (!res.ok) {
+          throw new Error('Hizmetler yüklenirken bir hata oluştu.');
+        }
+        const data = await res.json();
+        setServices(data);
+      } catch (err) {
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError('Bilinmeyen bir hata oluştu.');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchServices();
   }, []);
 
-  const handleReviewChange = (serviceId: number, field: 'rating' | 'comment', value: any) => {
+  useEffect(() => {
+    // Yorumları veritabanından yükle
+    const fetchReviews = async () => {
+      try {
+        const res = await fetch('/api/reviews');
+        if (res.ok) {
+          const data = await res.json();
+          setReviews(data);
+        }
+      } catch (error) {
+        console.error('Yorumlar yüklenirken hata:', error);
+      }
+    };
+
+    fetchReviews();
+  }, []);
+
+  const handleReviewChange = (serviceId: string, field: 'rating' | 'comment', value: string | number) => {
     setNewReview((prev) => ({
       ...prev,
       [serviceId]: {
@@ -81,15 +78,58 @@ export default function ServicesPage() {
     }));
   };
 
-  const handleReviewSubmit = (serviceId: number) => {
-    if (!newReview[serviceId]?.rating || !newReview[serviceId]?.comment) return;
-    const updated = [
-      ...reviews,
-      { serviceId, rating: newReview[serviceId].rating, comment: newReview[serviceId].comment },
-    ];
-    setReviews(updated);
-    localStorage.setItem('serviceReviews', JSON.stringify(updated));
-    setNewReview((prev) => ({ ...prev, [serviceId]: { rating: 0, comment: '' } }));
+  const handleReviewSubmit = async (serviceId: string) => {
+    if (!newReview[serviceId]?.rating || !newReview[serviceId]?.comment) {
+      alert('Lütfen puan ve yorum alanlarını doldurun.');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: 'Anonim', // Varsayılan isim
+          comment: newReview[serviceId].comment,
+          rating: newReview[serviceId].rating,
+          serviceId: serviceId,
+        }),
+      });
+
+      if (res.ok) {
+        const newReviewData = await res.json();
+        setReviews([...reviews, newReviewData]);
+        setNewReview((prev) => ({ ...prev, [serviceId]: { rating: 0, comment: '' } }));
+        alert('Yorum başarıyla eklendi!');
+      } else {
+        alert('Yorum eklenirken bir hata oluştu.');
+      }
+    } catch (error) {
+      console.error('Yorum eklenirken hata:', error);
+      alert('Yorum eklenirken bir hata oluştu.');
+    }
+  };
+
+  const handleReviewDelete = async (reviewId: string) => {
+    if (confirm('Bu yorumu silmek istediğinizden emin misiniz?')) {
+      try {
+        const res = await fetch(`/api/reviews/${reviewId}`, {
+          method: 'DELETE',
+        });
+
+        if (res.ok) {
+          setReviews(reviews.filter(review => review.id !== reviewId));
+          alert('Yorum başarıyla silindi!');
+        } else {
+          alert('Yorum silinirken bir hata oluştu.');
+        }
+      } catch (error) {
+        console.error('Yorum silinirken hata:', error);
+        alert('Yorum silinirken bir hata oluştu.');
+      }
+    }
   };
 
   const renderStars = (rating: number, setRating?: (r: number) => void) => (
@@ -105,6 +145,22 @@ export default function ServicesPage() {
       ))}
     </div>
   );
+  
+    if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <p className="text-xl">Hizmetler Yükleniyor...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <p className="text-xl text-red-500">{error}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white pt-16">
@@ -118,21 +174,24 @@ export default function ServicesPage() {
               : 0;
             return (
               <div key={service.id} className="bg-white rounded-lg shadow-lg overflow-hidden flex flex-col h-full">
-                <div className="relative w-full h-64">
-                  <Image
-                    src={service.imageUrl}
-                    alt={service.title}
-                    fill
-                    className="object-cover object-center"
-                  />
-                </div>
+                {service.imageUrl && (
+                  <div className="relative w-full h-64">
+                    <Image
+                      src={service.imageUrl}
+                      alt={service.name}
+                      fill
+                      className="object-cover object-center"
+                    />
+                  </div>
+                )}
                 <div className="p-6 flex flex-col flex-1">
-                  <h3 className="text-2xl font-bold mb-2">{service.title}</h3>
+                  <h3 className="text-2xl font-bold mb-2">{service.name}</h3>
                   <p className="text-gray-600 mb-2">{service.description}</p>
                   <p className="text-xl font-bold text-pink-500 mb-2">{service.price} TL</p>
                   <div className="mb-2 flex items-center gap-2">
-                    {renderStars(Math.round(avgRating))}
-                    <span className="text-sm text-gray-500">({serviceReviews.length} oy)</span>
+                    <span className="text-sm text-gray-500">
+                      Ortalama: {avgRating.toFixed(1)} ({serviceReviews.length} oy)
+                    </span>
                   </div>
                   <div className="mt-4">
                     <h4 className="font-semibold mb-2">Yorum Ekle</h4>
@@ -164,8 +223,16 @@ export default function ServicesPage() {
                     <ul className="space-y-2">
                       {serviceReviews.map((r, idx) => (
                         <li key={idx} className="border-b pb-2">
-                          <div className="flex items-center gap-2 mb-1">
-                            {renderStars(r.rating)}
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                              {renderStars(r.rating)}
+                            </div>
+                            <button
+                              onClick={() => handleReviewDelete(r.id)}
+                              className="text-red-500 hover:text-red-700 text-xs font-medium"
+                            >
+                              Sil
+                            </button>
                           </div>
                           <p className="text-gray-700 text-sm">{r.comment}</p>
                         </li>
